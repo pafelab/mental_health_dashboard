@@ -4,8 +4,14 @@
 // (Sarabun, 14px labels, generous padding, wrap long Thai names) are enforced centrally here.
 
 import type { EChartsOption } from 'echarts'
+import type { CallbackDataParams, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import type { ChartType } from '@/types'
 import { PALETTE } from '@/config'
+
+/** Parameter type accepted by labelFormatterFor callbacks. */
+export type ChartFormatterParams =
+  | CallbackDataParams
+  | { value?: unknown; data?: { value?: unknown } }
 
 export const FONT = 'Poppins, Prompt, sans-serif'
 export const LABEL_SIZE = 14
@@ -211,13 +217,10 @@ export interface ChartOptionParams {
   gradient?: string[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function labelFormatterFor(total: number, suffix: string) {
-  // ECharts' own formatter callback param union is deeply overloaded per series type; `any`
-  // here is the pragmatic choice every echarts+TS integration makes rather than fighting it.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (params: any): string => {
-    const raw = typeof params?.value === 'number' ? params.value : (params?.data?.value ?? 0)
+  return (params: ChartFormatterParams): string => {
+    const rawVal = typeof params?.value === 'number' ? params.value : (params?.data as { value?: unknown })?.value
+    const raw = typeof rawVal === 'number' ? rawVal : 0
     return formatCountPercent(raw, total) + suffix
   }
 }
@@ -318,9 +321,10 @@ function buildAxisOption(
         fontFamily: FONT,
         fontSize: LABEL_SIZE,
         color: '#334155',
-        formatter: (p: any) => {
-          const val = typeof p?.value === 'number' ? p.value : (p?.data?.value ?? 0)
-          if (!val || val <= 0) return ''
+        formatter: (p: CallbackDataParams) => {
+          const val = typeof p?.value === 'number' ? p.value : (p?.data as { value?: unknown })?.value
+          const numVal = typeof val === 'number' ? val : 0
+          if (!numVal || numVal <= 0) return ''
           return labelFmt(p)
         },
       },
@@ -330,9 +334,8 @@ function buildAxisOption(
   return {
     textStyle: baseTextStyle,
     ...baseAnimationConfig,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tooltip: { ...baseTooltip, trigger: 'axis', formatter: (p: any) => {
-      const item = Array.isArray(p) ? p[0] : p
+    tooltip: { ...baseTooltip, trigger: 'axis', formatter: (p: TopLevelFormatterParams) => {
+      const item = Array.isArray(p) ? (p[0] as CallbackDataParams) : (p as CallbackDataParams)
       const idx = item?.dataIndex ?? 0
       const v = values[idx]
       // A null datum is a month with no report at all — never present it as "0 (0.0%)".
@@ -377,8 +380,7 @@ function buildPieFamilyOption(
   const palette = colors ?? PALETTE.categorical
   const crowded = data.length > CROWDED_SLICE_COUNT
   // Crowded plot: keep the count on the slice, drop the percent (still in tooltip + table).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sliceLabel = (p: any): string =>
+  const sliceLabel = (p: CallbackDataParams): string =>
     crowded
       ? `${wrapThaiLabel(p.name)}\n${(typeof p.value === 'number' ? p.value : 0).toLocaleString('en-US')}${valueSuffix}`
       : `${wrapThaiLabel(p.name)}\n${labelFmt({ value: p.value })}`
@@ -387,7 +389,10 @@ function buildPieFamilyOption(
     textStyle: baseTextStyle,
     ...baseAnimationConfig,
     color: palette,
-    tooltip: { ...baseTooltip, trigger: 'item', formatter: (p: any) => `${p.name}<br/>${labelFmt({ value: p.value })}` },
+    tooltip: { ...baseTooltip, trigger: 'item', formatter: (p: TopLevelFormatterParams) => {
+      const item = p as CallbackDataParams
+      return `${item.name}<br/>${labelFmt({ value: item.value })}`
+    } },
     legend: {
       bottom: 0,
       type: 'scroll',
@@ -422,8 +427,7 @@ function buildPieFamilyOption(
           // graphemes() exists to prevent. Letting it re-wrap our already-wrapped lines could
           // trip that; 'truncate' with an ellipsis is explicitly not acceptable either.
           lineHeight: 18,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter: (p: any) => sliceLabel(p),
+          formatter: (p: CallbackDataParams) => sliceLabel(p),
         },
         labelLine: { length: 10, length2: 10 },
       },
@@ -439,7 +443,10 @@ function buildTreemapOption({ data, total, valueSuffix = '', colors }: ChartOpti
     textStyle: baseTextStyle,
     ...baseAnimationConfig,
     color: palette,
-    tooltip: { ...baseTooltip, formatter: (p: any) => `${p.name}<br/>${labelFmt({ value: p.value })}` },
+    tooltip: { ...baseTooltip, formatter: (p: TopLevelFormatterParams) => {
+      const item = p as CallbackDataParams
+      return `${item.name}<br/>${labelFmt({ value: item.value })}`
+    } },
     series: [
       {
         name: 'series1',
@@ -459,7 +466,7 @@ function buildTreemapOption({ data, total, valueSuffix = '', colors }: ChartOpti
           // slide 20). wrapThaiLabel has already placed the Thai word breaks.
           overflow: 'break',
           lineHeight: 18,
-          formatter: (p: any) => `${wrapThaiLabel(p.name)}\n${labelFmt({ value: p.value })}`,
+          formatter: (p: CallbackDataParams) => `${wrapThaiLabel(p.name)}\n${labelFmt({ value: p.value })}`,
         },
         data: data.map((d) => ({ name: d.name, value: d.value ?? 0 })),
       },
@@ -475,7 +482,10 @@ function buildFunnelOption({ data, total, valueSuffix = '', colors }: ChartOptio
     textStyle: baseTextStyle,
     ...baseAnimationConfig,
     color: palette,
-    tooltip: { ...baseTooltip, trigger: 'item', formatter: (p: any) => `${p.name}<br/>${labelFmt({ value: p.value })}` },
+    tooltip: { ...baseTooltip, trigger: 'item', formatter: (p: TopLevelFormatterParams) => {
+      const item = p as CallbackDataParams
+      return `${item.name}<br/>${labelFmt({ value: item.value })}`
+    } },
     series: [
       {
         name: 'series1',
@@ -495,7 +505,7 @@ function buildFunnelOption({ data, total, valueSuffix = '', colors }: ChartOptio
           // Same reasoning as the pie label: the \n from wrapThaiLabel does the breaking, and
           // an `overflow` with no `width` would be a no-op anyway.
           lineHeight: 18,
-          formatter: (p: any) => `${wrapThaiLabel(p.name, 16)}\n${labelFmt({ value: p.value })}`,
+          formatter: (p: CallbackDataParams) => `${wrapThaiLabel(p.name, 16)}\n${labelFmt({ value: p.value })}`,
         },
         data: data.map((d) => ({ name: d.name, value: d.value ?? 0 })),
       },
@@ -609,15 +619,15 @@ export function buildMultiSeriesOption(
       color: stacked ? '#ffffff' : '#334155',
       textShadowColor: stacked ? 'rgba(0, 0, 0, 0.45)' : undefined,
       textShadowBlur: stacked ? 3 : undefined,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      formatter: (p: any) => {
-        const val = typeof p?.value === 'number' ? p.value : (p?.data?.value ?? 0)
-        if (!val || val <= 0) return ''
-        const pct = denom > 0 ? ((val / denom) * 100).toFixed(1) : '0.0'
+      formatter: (p: CallbackDataParams) => {
+        const val = typeof p?.value === 'number' ? p.value : (p?.data as { value?: unknown })?.value
+        const numVal = typeof val === 'number' ? val : 0
+        if (!numVal || numVal <= 0) return ''
+        const pct = denom > 0 ? ((numVal / denom) * 100).toFixed(1) : '0.0'
         if (isHorizontal) {
-          return `${val.toLocaleString('en-US')} (${pct}%)${valueSuffix}`
+          return `${numVal.toLocaleString('en-US')} (${pct}%)${valueSuffix}`
         }
-        return `${val.toLocaleString('en-US')}\n(${pct}%)${valueSuffix}`
+        return `${numVal.toLocaleString('en-US')}\n(${pct}%)${valueSuffix}`
       },
     },
     // Thin stacked segments can't fit "123 (45.6%)" — drop the label rather than overlap it.
@@ -633,10 +643,11 @@ export function buildMultiSeriesOption(
       ...baseTooltip,
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      formatter: (params: any) => {
-        const list = Array.isArray(params) ? params : [params]
-        const cat = list[0]?.axisValueLabel ?? list[0]?.name ?? ''
-        const lines = list.map((p: any) => `${p.marker} ${p.seriesName}: ${labelFmt({ value: p.value })}`)
+      formatter: (params: TopLevelFormatterParams) => {
+        const list = Array.isArray(params) ? (params as CallbackDataParams[]) : [params as CallbackDataParams]
+        const first = list[0] as (CallbackDataParams & { axisValueLabel?: string }) | undefined
+        const cat = first?.axisValueLabel ?? first?.name ?? ''
+        const lines = list.map((p) => `${p.marker ?? ''} ${p.seriesName ?? ''}: ${labelFmt({ value: p.value })}`)
         return [cat, ...lines].join('<br/>')
       },
     },
