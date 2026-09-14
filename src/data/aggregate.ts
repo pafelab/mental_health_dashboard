@@ -45,16 +45,29 @@ export function countBy<T>(rows: T[], pick: (row: T) => string, order?: string[]
       .sort((a, b) => b.value - a.value)
   }
 
+  const collapsedMap = new Map<string, Array<{ raw: string; count: number }>>()
+  for (const [raw, count] of rawCounts.entries()) {
+    const key = collapseWs(raw)
+    let list = collapsedMap.get(key)
+    if (!list) {
+      list = []
+      collapsedMap.set(key, list)
+    }
+    list.push({ raw, count })
+  }
+
   const consumed = new Set<string>()
   const result: CategoryCount[] = order.map((label) => {
     const target = collapseWs(label)
+    const matches = collapsedMap.get(target)
     let value = 0
-    rawCounts.forEach((count, raw) => {
-      if (collapseWs(raw) === target) {
-        value += count
-        consumed.add(raw)
+    if (matches) {
+      for (let i = 0; i < matches.length; i++) {
+        const item = matches[i]
+        value += item.count
+        consumed.add(item.raw)
       }
-    })
+    }
     return { name: label, value }
   })
 
@@ -280,18 +293,31 @@ export function impactByPatientGroup(rows: { patientGroup: string; deaths: numbe
     sums.set(v, cur)
   }
 
+  const collapsedMap = new Map<string, Array<{ raw: string; deaths: number; injured: number }>>()
+  for (const [raw, val] of sums.entries()) {
+    const key = collapseWs(raw)
+    let list = collapsedMap.get(key)
+    if (!list) {
+      list = []
+      collapsedMap.set(key, list)
+    }
+    list.push({ raw, deaths: val.deaths, injured: val.injured })
+  }
+
   const consumed = new Set<string>()
   const result = CATEGORY_ORDERS.patientGroup.map((label) => {
     const target = collapseWs(label)
+    const matches = collapsedMap.get(target)
     let deaths = 0
     let injured = 0
-    sums.forEach((val, raw) => {
-      if (collapseWs(raw) === target) {
-        deaths += val.deaths
-        injured += val.injured
-        consumed.add(raw)
+    if (matches) {
+      for (let i = 0; i < matches.length; i++) {
+        const item = matches[i]
+        deaths += item.deaths
+        injured += item.injured
+        consumed.add(item.raw)
       }
-    })
+    }
     return { group: label, deaths, injured }
   })
 
