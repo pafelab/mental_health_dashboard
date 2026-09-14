@@ -4,6 +4,7 @@
 // (Sarabun, 14px labels, generous padding, wrap long Thai names) are enforced centrally here.
 
 import type { EChartsOption } from 'echarts'
+import type { TopLevelFormatterParams, CallbackDataParams } from 'echarts/types/dist/shared'
 import type { ChartType } from '@/types'
 import { PALETTE } from '@/config'
 
@@ -330,9 +331,8 @@ function buildAxisOption(
   return {
     textStyle: baseTextStyle,
     ...baseAnimationConfig,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tooltip: { ...baseTooltip, trigger: 'axis', formatter: (p: any) => {
-      const item = Array.isArray(p) ? p[0] : p
+    tooltip: { ...baseTooltip, trigger: 'axis', formatter: (p: TopLevelFormatterParams) => {
+      const item: CallbackDataParams | undefined = Array.isArray(p) ? p[0] : p
       const idx = item?.dataIndex ?? 0
       const v = values[idx]
       // A null datum is a month with no report at all — never present it as "0 (0.0%)".
