@@ -60,8 +60,7 @@ export const PROVINCE_ZONE: Record<string, number> = Object.fromEntries(
 {
   const distinct = new Set(ALL_PROVINCES)
   if (distinct.size !== 77 || ALL_PROVINCES.length !== 77) {
-    // eslint-disable-next-line no-console
-    console.warn(
+    throw new Error(
       `ZONE_PROVINCES sanity check failed: expected 77 distinct provinces, got ${distinct.size} distinct / ${ALL_PROVINCES.length} total.`,
     )
   }
