@@ -16,7 +16,7 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { MapPin } from 'lucide-react'
 import type { CategoryCount } from '@/types'
-import { ZONE_PROVINCES, PALETTE } from '@/config'
+import { ZONE_PROVINCES, PROVINCE_ZONE, PALETTE } from '@/config'
 import { prefersReducedMotion } from './chartOptions'
 import DataTable, { summaryText } from './DataTable'
 import { TableToggle } from './SwitchableChart'
@@ -347,8 +347,7 @@ export default function ThailandMap(p: ThailandMapProps): JSX.Element {
     if (!p.selectedProvince) return null
     const hit = p.data.find((d) => d.name === p.selectedProvince)
     const val = hit ? hit.value : 0
-    const zoneNum =
-      Object.entries(ZONE_PROVINCES).find(([_, provs]) => provs.includes(p.selectedProvince!))?.[0] ?? '-'
+    const zoneNum = PROVINCE_ZONE[p.selectedProvince] ?? '-'
     const base = p.baselineTotal
     const hasBase = typeof base === 'number' && Number.isFinite(base) && base > 0
     const pct = hasBase ? ((val / (base as number)) * 100).toFixed(1) : null
