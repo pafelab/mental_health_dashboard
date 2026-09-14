@@ -171,6 +171,11 @@ export interface ChartDatum {
   value: number | null
 }
 
+export interface PieSliceLabelParams {
+  name: string
+  value?: unknown
+}
+
 /** '—' in a tooltip/table: the month exists on the axis but carries no report at all (UX-02). */
 export const NO_DATA_TEXT = 'ไม่มีรายงาน'
 
@@ -377,8 +382,7 @@ function buildPieFamilyOption(
   const palette = colors ?? PALETTE.categorical
   const crowded = data.length > CROWDED_SLICE_COUNT
   // Crowded plot: keep the count on the slice, drop the percent (still in tooltip + table).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sliceLabel = (p: any): string =>
+  const sliceLabel = (p: PieSliceLabelParams): string =>
     crowded
       ? `${wrapThaiLabel(p.name)}\n${(typeof p.value === 'number' ? p.value : 0).toLocaleString('en-US')}${valueSuffix}`
       : `${wrapThaiLabel(p.name)}\n${labelFmt({ value: p.value })}`
@@ -422,8 +426,7 @@ function buildPieFamilyOption(
           // graphemes() exists to prevent. Letting it re-wrap our already-wrapped lines could
           // trip that; 'truncate' with an ellipsis is explicitly not acceptable either.
           lineHeight: 18,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter: (p: any) => sliceLabel(p),
+          formatter: (p: PieSliceLabelParams) => sliceLabel(p),
         },
         labelLine: { length: 10, length2: 10 },
       },
