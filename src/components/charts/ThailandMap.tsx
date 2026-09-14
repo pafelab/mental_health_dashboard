@@ -16,7 +16,7 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { MapPin } from 'lucide-react'
 import type { CategoryCount } from '@/types'
-import { ZONE_PROVINCES, PALETTE } from '@/config'
+import { ZONE_PROVINCES, PROVINCE_ZONE, PALETTE } from '@/config'
 import { prefersReducedMotion } from './chartOptions'
 import DataTable, { summaryText } from './DataTable'
 import { TableToggle } from './SwitchableChart'
@@ -343,17 +343,20 @@ export default function ThailandMap(p: ThailandMapProps): JSX.Element {
    *  always render a selected province as 100% (audit UX-01). */
   const baselineLabel = p.baselineLabel ?? (p.mode === 'zone' ? 'เขต' : 'ทั้งประเทศ')
 
+  const dataMap = useMemo(
+    () => new Map(p.data.map((d) => [d.name, d.value])),
+    [p.data],
+  )
+
   const selectedInfo = useMemo(() => {
     if (!p.selectedProvince) return null
-    const hit = p.data.find((d) => d.name === p.selectedProvince)
-    const val = hit ? hit.value : 0
-    const zoneNum =
-      Object.entries(ZONE_PROVINCES).find(([_, provs]) => provs.includes(p.selectedProvince!))?.[0] ?? '-'
+    const val = dataMap.get(p.selectedProvince) ?? 0
+    const zoneNum = PROVINCE_ZONE[p.selectedProvince] !== undefined ? String(PROVINCE_ZONE[p.selectedProvince]) : '-'
     const base = p.baselineTotal
     const hasBase = typeof base === 'number' && Number.isFinite(base) && base > 0
     const pct = hasBase ? ((val / (base as number)) * 100).toFixed(1) : null
     return { name: p.selectedProvince, value: val, zoneNum, pct }
-  }, [p.selectedProvince, p.data, p.baselineTotal])
+  }, [p.selectedProvince, dataMap, p.baselineTotal])
 
   /** What the unselected count actually covers: the map's own scope, which is narrower than the
    *  baseline whenever a zone filter is applied (audit UX-01: state the comparison scope). */
