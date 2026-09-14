@@ -62,8 +62,7 @@ export function rangeLabel(levels: TimelinessLevelDef[], i: number): string {
 {
   const descending = TIMELINESS_LEVELS.every((l, i) => i === 0 || TIMELINESS_LEVELS[i - 1].min > l.min)
   if (!descending) {
-    // eslint-disable-next-line no-console
-    console.warn(
+    throw new Error(
       'TIMELINESS_LEVELS must stay sorted by `min` DESCENDING — computeTimeliness() and rangeLabel() both assume it.',
     )
   }
