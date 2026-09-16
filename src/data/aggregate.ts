@@ -316,7 +316,7 @@ const RISK_DENOMINATOR_SET = new Set(RISK_DENOMINATOR_STATUSES.map(collapseWs))
 
 /** True when a row's ประเภทผู้ป่วย is one of the four psychiatric/substance statuses. */
 export function isRiskDenominatorRow(row: { patientStatus: string }): boolean {
-  return RISK_DENOMINATOR_SET.has(collapseWs(row.patientStatus))
+  return RISK_DENOMINATOR_SET.has(row.patientStatus) || RISK_DENOMINATOR_SET.has(collapseWs(row.patientStatus))
 }
 
 /**
@@ -336,14 +336,18 @@ export function isRiskDenominatorRow(row: { patientStatus: string }): boolean {
  * restructure it matched nothing at all.
  */
 export function riskFactors(rows: SLEvent[]): FactorBreakdown {
-  const scoped = rows.filter(isRiskDenominatorRow)
   const items: CategoryCount[] = RISK_KEYWORDS.map((k) => ({ name: k.label, value: 0 }))
+  let denominator = 0
   let affected = 0
 
-  for (const row of scoped) {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]
+    if (!isRiskDenominatorRow(row)) continue
+    denominator++
     let hasAny = false
+    const flags = row.riskFlags
     for (let i = 0; i < items.length; i++) {
-      if (row.riskFlags[i]) {
+      if (flags[i]) {
         items[i].value++
         hasAny = true
       }
@@ -351,7 +355,7 @@ export function riskFactors(rows: SLEvent[]): FactorBreakdown {
     if (hasAny) affected++
   }
 
-  return { items, denominator: scoped.length, affected }
+  return { items, denominator, affected }
 }
 
 /**
@@ -367,10 +371,12 @@ export function warningSigns(rows: SLEvent[]): FactorBreakdown {
   const items: CategoryCount[] = SIGN_KEYWORDS.map((k) => ({ name: k.label, value: 0 }))
   let affected = 0
 
-  for (const row of rows) {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]
     let hasAny = false
+    const flags = row.signFlags
     for (let i = 0; i < items.length; i++) {
-      if (row.signFlags[i]) {
+      if (flags[i]) {
         items[i].value++
         hasAny = true
       }
