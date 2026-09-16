@@ -354,6 +354,21 @@ export function riskFactors(rows: SLEvent[]): FactorBreakdown {
   return { items, denominator: scoped.length, affected }
 }
 
+function joinRiskSignCells(riskCells?: string[], signCells?: string[]): string {
+  return [...(riskCells ?? []), ...(signCells ?? [])]
+    .map((c) => c.trim())
+    .filter((c) => c !== '' && c !== '-')
+    .join(' ')
+}
+
+function compileKeywordsRegex(keywords: string[]): RegExp | null {
+  if (!keywords || keywords.length === 0) return null
+  const pattern = keywords.map((kw) => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  return new RegExp(pattern)
+}
+
+const SIGN_REGEXES = SIGN_KEYWORDS.map((k) => compileKeywordsRegex(k.keywords))
+
 /**
  * 5 สัญญาณเตือน — review deck slide 14. Read from SLEvent.signFlags (cols 78-82 as FLAG columns);
  * signFlags[i] belongs to SIGN_KEYWORDS[i] by construction (the parser resolves each sign to its
@@ -369,8 +384,24 @@ export function warningSigns(rows: SLEvent[]): FactorBreakdown {
 
   for (const row of rows) {
     let hasAny = false
+    let textMemo: string | null = null
+    const getText = () => {
+      if (textMemo === null) {
+        textMemo = joinRiskSignCells(row.riskCells, row.signCells)
+      }
+      return textMemo
+    }
+
     for (let i = 0; i < items.length; i++) {
-      if (row.signFlags[i]) {
+      let match = false
+      if (row.signFlags && row.signFlags.length > i) {
+        match = row.signFlags[i]
+      } else {
+        const regex = SIGN_REGEXES[i]
+        match = regex ? regex.test(getText()) : false
+      }
+
+      if (match) {
         items[i].value++
         hasAny = true
       }

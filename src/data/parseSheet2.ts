@@ -278,6 +278,15 @@ function factorCell(row: string[], cols: number[]): string {
   return cols.length > 0 ? cell(row, cols[0]) : ''
 }
 
+function compileKeywordsRegex(keywords: string[]): RegExp | null {
+  if (!keywords || keywords.length === 0) return null
+  const pattern = keywords.map((kw) => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  return new RegExp(pattern)
+}
+
+const RISK_REGEXES = RISK_KEYWORDS.map((f) => compileKeywordsRegex(f.keywords))
+const SIGN_REGEXES = SIGN_KEYWORDS.map((f) => compileKeywordsRegex(f.keywords))
+
 /** Parses rows[0] as header + rows[1..] as data. Blank/all-empty rows are skipped. */
 export function parseSheet2(rows: string[][]): SLEvent[] {
   if (rows.length === 0) return []
@@ -306,13 +315,20 @@ export function parseSheet2(rows: string[][]): SLEvent[] {
 
     // Primary path: the column IS the flag. Fallback path (old free-text schema, where a factor's
     // column does not exist): scan the joined risk+sign text for that factor's keywords.
-    const scanText = [...riskCells, ...signCells]
-      .map((c) => c.trim())
-      .filter((c) => c !== '' && c !== '-')
-      .join(' ')
-    const flagOf = (cols: number[], keywords: string[]): boolean => {
+    let scanTextMemo: string | null = null
+    const getScanText = (): string => {
+      if (scanTextMemo === null) {
+        scanTextMemo = [...riskCells, ...signCells]
+          .map((c) => c.trim())
+          .filter((c) => c !== '' && c !== '-')
+          .join(' ')
+      }
+      return scanTextMemo
+    }
+
+    const flagOf = (cols: number[], regex: RegExp | null): boolean => {
       if (cols.length > 0) return cols.some((c) => isFlagCell(cell(row, c)))
-      return keywords.some((kw) => scanText.includes(kw))
+      return regex ? regex.test(getScanText()) : false
     }
 
     const province = normProvince(provinceRaw)
@@ -360,8 +376,8 @@ export function parseSheet2(rows: string[][]): SLEvent[] {
       assistance: collapseDoubledMarks(cell(row, idx.assistance)),
       riskCells,
       signCells,
-      riskFlags: RISK_KEYWORDS.map((f, fi) => flagOf(res.risk[fi], f.keywords)),
-      signFlags: SIGN_KEYWORDS.map((f, fi) => flagOf(res.signs[fi], f.keywords)),
+      riskFlags: RISK_KEYWORDS.map((_, fi) => flagOf(res.risk[fi], RISK_REGEXES[fi])),
+      signFlags: SIGN_KEYWORDS.map((_, fi) => flagOf(res.signs[fi], SIGN_REGEXES[fi])),
       // collapseDoubledMarks: the col-29 variant of this column has 2 rows spelled 'ไม่่มี'.
       fiveSignsAnswer: collapseDoubledMarks(cell(row, idx.fiveSignsAnswer)),
     })
